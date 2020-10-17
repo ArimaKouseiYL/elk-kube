@@ -1,7 +1,7 @@
 Start ELK test enviroment 
 
 
-###Minikube enviroment
+###Minikube enviroment###
 ```kubectl apply -f kube/.```
 
 Provision take a time 5-10 min
