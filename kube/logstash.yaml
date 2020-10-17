@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-configmap
+  labels:
+    component: logstash
+    role: processing
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    path.config: /usr/share/logstash/config/logstash.conf
+  logstash.conf: |
+    # all input will come from filebeat, no local logs
+    input {
+      beats {
+        port => 5044
+      }
+    }
+    filter {
+      grok {
+        match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:log-level} %{GREEDYDATA:message}" }
+      }
+    }
+    output {
+      elasticsearch {
+        index => "logstash-%{+yyyy.MM.dd}"
+        hosts => [ "elasticsearch:9200" ] 
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    component: logstash
+    role: processing
+  name: logstash
+spec:
+  ports:
+  - name: "25826"
+    port: 25826
+    targetPort: 25826
+  - name: "5044"
+    port: 5044
+    targetPort: 5044
+  selector:
+    component: logstash
+    role: processing
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  labels:
+    component: logstash
+    role: processing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: logstash
+      role: processing
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        component: logstash
+        role: processing
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:7.9.2
+        ports:
+        - containerPort: 5044
+        - containerPort: 25826
+        env:
+        - name: ES_HOSTS
+          value: "http://elasticsearch:9200"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "100Mi"
+          limits:
+            cpu: "250m"
+            memory: "1000Mi"
+        volumeMounts:
+        - mountPath: /usr/share/logstash/config
+          name: logstash-configmap
+      volumes:
+      - configMap:
+          name: logstash-configmap
+        name: logstash-configmap

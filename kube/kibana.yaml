@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  labels:
+    component: kibana
+    role: analitic
+spec:
+  type: NodePort
+  ports:
+  - port: 5601
+  selector:
+    component: kibana
+    role: analitic
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  labels:
+    component: kibana
+    role: analitic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: kibana
+      role: analitic
+  template:
+    metadata:
+      labels:
+        component: kibana
+        role: analitic
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:7.9.2
+        resources:
+          limits:
+            cpu: 200m
+          requests:
+            cpu: 100m
+        env:
+          - name: ELASTICSEARCH_URL
+            value: "http://elasticsearch:9200"
+        ports:
+        - containerPort: 5601
